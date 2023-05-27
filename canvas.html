@@ -47,13 +47,17 @@
 
             let basemap = svg.append('g')
                              .attr("id","basemap");
+
         </script>
 
         <script>
             let svgWidth  = 300;// +svg.node().getBoundingClientRect().width;
             let svgHeight = 150;// +svg.node().getBoundingClientRect().height;
 
-            let sensitivity = 10.01
+            let sensitivity = 10.;
+
+            // hold the country definitions here
+            let countries;
 
             let projection = d3.geoOrthographic().clipAngle([90])
             //let projection = d3.geoNaturalEarth1()
@@ -87,13 +91,12 @@
             }
 
             let selectModel = function(event,d) {
-                console.log(d);
-
                 let target = d3.select(event.currentTarget);
                 let currentFill = target.style('fill');
 
                 // Alternate between highlighted and not.
                 if(currentFill == 'url("#crosshatch")') {
+                    // clicked on a model country that is already selected, deselect
                     let modelFill = target.attr("model-fill");
                     target.style("fill",modelFill);
 
@@ -102,12 +105,33 @@
 
 
                 } else if(currentFill != d3.color('ivory')) {
+                    // clicked on a model country that has not been selected, select
                     target.attr("model-fill",currentFill);
                     target.style("fill", "url(#crosshatch)")
 
                     target.style("stroke", "#f00")
                           .attr("stroke-width","0.4px");
+
+                } else {
+                    // Clicked on a country that has no model, deselect all
+                    clearSelections(target);
                 }
+
+                event.stopPropagation();
+            }
+                        
+            let clickOutside = function(event,d) {
+                // Clicked outside all countries
+                clearSelections();
+            }
+
+            let clearSelections = function(target) {
+                // deselect all selected countries
+                console.log('clicked outside, countries: ',countries.length);
+                svg.selectAll("path").filter(d => d.properties != null)
+                   .style("fill", (d,i) => isActive(d,i))
+                   .style("stroke", "#000")
+                   .style("stroke-width","0.2px");;
             }
 
             let drag = d3.drag()
@@ -150,13 +174,13 @@
             }
 
             d3.json("./world.geo.json").then( data => {
-                console.log(data.features.length);
-                features = data.features;
+                countries = data.features;
 
+                // countries - categorical fill colors if a model exists
                 svg.selectAll("path")
-                    .data(data.features)
+                    .data(countries)
                     .enter().append("path")
-                        .attr("fill", (d,i) => isActive(d,i))  //  #69b3a2 
+                        .attr("fill", (d,i) => isActive(d,i))
                         .attr("stroke-width","0.2px")
                         .attr("d", d3.geoPath()
                             .projection(projection)
@@ -164,7 +188,7 @@
                         .style("stroke", "#000")
                         .on('click', selectModel);
 
-                //map.append("path")
+                // graticule - ignore clicks to avoid deselecting all if we click on it
                 svg.append("g")
                         .attr("id","graticule")
                         .attr("class", "graticule")
@@ -174,9 +198,10 @@
                         .attr("stroke-opacity", 0.5)
                         .append("path")
                         .datum(graticule)
-                        .attr("d", path);
+                        .attr("d", path)
+                        .on("click",event => event.stopPropagation());
 
-
+                // site locations - add a marker for each of them
                 svg.append("g")
                    .attr("id","stuff")
                    .selectAll("circle")
@@ -188,7 +213,9 @@
                                 .style('fill','red')
                                 .style('stroke',"none")
 
-                svg.call(drag)
+                // handle clicks outsied countries and move map on drag
+                svg.on("click", clickOutside)
+                   .call(drag);
 
             });
 
