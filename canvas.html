@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Looking at some charting</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+        <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+
+        <style>
+            .svg-container {
+                display: inline-block;
+                position: relative;
+                width: 100%;
+                padding-bottom: 100%;
+                vertical-align: top;
+                overflow: hidden;
+            }
+            .svg-content {
+                display: inline-block;
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+            .graticule {
+                fill: "none";
+                stroke: "grey";
+                stroke-width: .5px;
+                stroke-opacity: .5;
+            }
+
+        </style>
+    </head>
+    <body>
+        <h1>This is the top</h1>
+        <svg height="8" width="8" xmlns="http://www.w3.org/2000/svg" version="1.1"> <defs> <pattern id="crosshatch" patternUnits="userSpaceOnUse" width="1" height="1"> <image xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc4JyBoZWlnaHQ9JzgnPgogIDxyZWN0IHdpZHRoPSc4JyBoZWlnaHQ9JzgnIGZpbGw9JyNmZmYnLz4KICA8cGF0aCBkPSdNMCAwTDggOFpNOCAwTDAgOFonIHN0cm9rZS13aWR0aD0nMC41JyBzdHJva2U9JyNhYWEnLz4KPC9zdmc+Cg==" x="0" y="0" width="8" height="8"> </image> </pattern> </defs> </svg>
+        <p>this is some information at the top</p>
+        <div id="bob" class="svg-container"></div>
+        <p>closing remarks are here</p>
+
+        <script>
+            let bob = d3.select("div#bob");
+            let svg = bob.append("svg")
+                        .attr("preserveAspectRatio", "xMinYMin meet")
+                        .attr("viewBox", "0 0 300 300")
+                        .classed("svg-content", true)
+                        .style("background-color", "ivory");
+
+            let basemap = svg.append('g')
+                             .attr("id","basemap");
+        </script>
+
+        <script>
+            let svgWidth  = 300;// +svg.node().getBoundingClientRect().width;
+            let svgHeight = 150;// +svg.node().getBoundingClientRect().height;
+
+            let sensitivity = 10.01
+
+            let projection = d3.geoOrthographic().clipAngle([90])
+            //let projection = d3.geoNaturalEarth1()
+                               .rotate([0,-25])
+                               .scale(50)
+                               .translate([svgWidth / 2, svgHeight / 2])
+
+            let graticule = d3.geoGraticule();
+
+            let path = d3.geoPath()
+                                 .projection(projection);
+
+            let map = svg.append("g")
+                         .attr("id","map");
+
+            let dragging = function(event){
+                const rotate = projection.rotate();
+                const k = sensitivity / projection.scale();
+
+                projection.rotate([
+                    (rotate[0] + (event.dx * k)), // moving pointer up (north), projection goes south
+                    (rotate[1] - (event.dy * k))  // moving pointer right (east), projection goes west
+                ]);
+                path = d3.geoPath().projection(projection);
+                svg.selectAll("path").attr("d", path);
+
+                svg.selectAll("circle").attr("cx",(d) => projection([d[0],d[1]])[0])
+                                       .attr("cy",(d) => projection([d[0],d[1]])[1])
+                                       .style('fill', d => 
+                                            path({"type": "MultiPoint", "coordinates": [d]})? 'red': 'none');
+            }
+
+            let selectModel = function(event,d) {
+                console.log(d);
+
+                let target = d3.select(event.currentTarget);
+                let currentFill = target.style('fill');
+
+                // Alternate between highlighted and not.
+                if(currentFill == 'url("#crosshatch")') {
+                    let modelFill = target.attr("model-fill");
+                    target.style("fill",modelFill);
+
+                    target.style("stroke", "#000")
+                          .attr("stroke-width","0.2px");
+
+
+                } else if(currentFill != d3.color('ivory')) {
+                    target.attr("model-fill",currentFill);
+                    target.style("fill", "url(#crosshatch)")
+
+                    target.style("stroke", "#f00")
+                          .attr("stroke-width","0.4px");
+                }
+            }
+
+            let drag = d3.drag()
+                        .on("drag", dragging)
+
+            let sites = [
+                [-98.,40.],
+                [2.35,48.86]
+            ];
+
+            let activeCountries = ["USA","MEX","ARG","IND","ZAF", "JPN", "VNM", "THA",
+                                   "BRA","FRA", "ROU", "HUN", "TUR", "UKR"];
+            let activeColors = d3.scaleOrdinal(d3.schemeSet3);
+
+            function isActive(feature,i) {
+                if(activeCountries.includes(feature.id)) {
+                    return activeColors(i);
+                }
+                return "ivory";
+            }
+
+            let features = [];
+
+            function update() {
+                basemap.selectAll("path")
+                       .data(features)
+                       .join(
+                            enter => 
+                                enter.append("path")
+                                     .attr(
+                                        "d",
+                                     ),
+                            update =>
+                                update.attr(
+                                        "d",
+                                      ),
+                            exit =>
+                                exit.remove()
+                       )
+            }
+
+            d3.json("./world.geo.json").then( data => {
+                console.log(data.features.length);
+                features = data.features;
+
+                svg.selectAll("path")
+                    .data(data.features)
+                    .enter().append("path")
+                        .attr("fill", (d,i) => isActive(d,i))  //  #69b3a2 
+                        .attr("stroke-width","0.2px")
+                        .attr("d", d3.geoPath()
+                            .projection(projection)
+                        )
+                        .style("stroke", "#000")
+                        .on('click', selectModel);
+
+                //map.append("path")
+                svg.append("g")
+                        .attr("id","graticule")
+                        .attr("class", "graticule")
+                        .attr("stroke","grey")
+                        .attr("fill","none")
+                        .attr("stroke-width", "0.5px")
+                        .attr("stroke-opacity", 0.5)
+                        .append("path")
+                        .datum(graticule)
+                        .attr("d", path);
+
+
+                svg.append("g")
+                   .attr("id","stuff")
+                   .selectAll("circle")
+                        .data(sites).enter()
+                        .append("circle")
+                                .attr("r",1)
+                                .attr("cx",(d) => projection([d[0],d[1]])[0])
+                                .attr("cy",(d) => projection([d[0],d[1]])[1])
+                                .style('fill','red')
+                                .style('stroke',"none")
+
+                svg.call(drag)
+
+            });
+
+        </script>
+    </body>
+</html>
