@@ -58,8 +58,10 @@
 
             // hold the country definitions here
             let countries;
+            let features = [];
 
-            let projection = d3.geoOrthographic().clipAngle([90])
+            // initialize the geoOrthographic projection
+            let projection = d3.geoOrthographic()
             //let projection = d3.geoNaturalEarth1()
                                .rotate([0,-25])
                                .scale(50)
@@ -73,23 +75,50 @@
             let map = svg.append("g")
                          .attr("id","map");
 
+            // Sites to place markers
+            let sites = [
+                [-98.,40.],
+                [2.35,48.86]
+            ];
+
+            // modeled countries with categorical colors
+            let modeledCountries = ["USA","MEX","ARG","IND","ZAF", "JPN", "PHL", "VNM", "THA",
+                                   "BRA","FRA", "ROU", "HUN", "TUR", "UKR"];
+            let modelColors = d3.scaleOrdinal(d3.schemeSet3);
+
+            // colors for model countries
+            function getModelColor(feature,i) {
+                if(modeledCountries.includes(feature.id)) {
+                    return modelColors(i);
+                }
+                return "ivory";
+            }
+
+            // drag behavior
             let dragging = function(event){
                 const rotate = projection.rotate();
                 const k = sensitivity / projection.scale();
 
+                // Adjust the projection according to the drag parameters
                 projection.rotate([
                     (rotate[0] + (event.dx * k)), // moving pointer up (north), projection goes south
                     (rotate[1] - (event.dy * k))  // moving pointer right (east), projection goes west
                 ]);
+
+                // Move the map countries and graticule
                 path = d3.geoPath().projection(projection);
                 svg.selectAll("path").attr("d", path);
 
+                // Move the site markers - clip using "path()"
                 svg.selectAll("circle").attr("cx",(d) => projection([d[0],d[1]])[0])
                                        .attr("cy",(d) => projection([d[0],d[1]])[1])
                                        .style('fill', d => 
                                             path({"type": "MultiPoint", "coordinates": [d]})? 'red': 'none');
             }
 
+            let drag = d3.drag().on("drag", dragging)
+
+            // select behavior
             let selectModel = function(event,d) {
                 let target = d3.select(event.currentTarget);
                 let currentFill = target.style('fill');
@@ -101,59 +130,39 @@
                     target.style("fill",modelFill);
 
                     target.style("stroke", "#000")
-                          .attr("stroke-width","0.2px");
+                          .style("stroke-width","0.2px");
 
 
-                } else if(currentFill != d3.color('ivory')) {
+                } else if(!((currentFill == d3.color('ivory')) || (currentFill == 'ivory'))) {
                     // clicked on a model country that has not been selected, select
                     target.attr("model-fill",currentFill);
                     target.style("fill", "url(#crosshatch)")
 
                     target.style("stroke", "#f00")
-                          .attr("stroke-width","0.4px");
+                          .style("stroke-width","0.4px");
 
                 } else {
                     // Clicked on a country that has no model, deselect all
-                    clearSelections(target);
+                    clearSelections();
                 }
 
                 event.stopPropagation();
             }
-                        
+               
+            // click outside of the model countries clears all current selections
             let clickOutside = function(event,d) {
                 // Clicked outside all countries
                 clearSelections();
             }
 
-            let clearSelections = function(target) {
+            // clear selections by setting fill (and stroke) to original values
+            let clearSelections = function() {
                 // deselect all selected countries
-                console.log('clicked outside, countries: ',countries.length);
                 svg.selectAll("path").filter(d => d.properties != null)
-                   .style("fill", (d,i) => isActive(d,i))
+                   .style("fill", (d,i) => getModelColor(d,i))
                    .style("stroke", "#000")
                    .style("stroke-width","0.2px");;
             }
-
-            let drag = d3.drag()
-                        .on("drag", dragging)
-
-            let sites = [
-                [-98.,40.],
-                [2.35,48.86]
-            ];
-
-            let activeCountries = ["USA","MEX","ARG","IND","ZAF", "JPN", "VNM", "THA",
-                                   "BRA","FRA", "ROU", "HUN", "TUR", "UKR"];
-            let activeColors = d3.scaleOrdinal(d3.schemeSet3);
-
-            function isActive(feature,i) {
-                if(activeCountries.includes(feature.id)) {
-                    return activeColors(i);
-                }
-                return "ivory";
-            }
-
-            let features = [];
 
             function update() {
                 basemap.selectAll("path")
@@ -180,8 +189,8 @@
                 svg.selectAll("path")
                     .data(countries)
                     .enter().append("path")
-                        .attr("fill", (d,i) => isActive(d,i))
-                        .attr("stroke-width","0.2px")
+                        .style("fill", (d,i) => getModelColor(d,i))
+                        .style("stroke-width","0.2px")
                         .attr("d", d3.geoPath()
                             .projection(projection)
                         )
@@ -192,10 +201,10 @@
                 svg.append("g")
                         .attr("id","graticule")
                         .attr("class", "graticule")
-                        .attr("stroke","grey")
-                        .attr("fill","none")
-                        .attr("stroke-width", "0.5px")
-                        .attr("stroke-opacity", 0.5)
+                        .style("stroke","grey")
+                        .style("fill","none")
+                        .style("stroke-width", "0.5px")
+                        .style("stroke-opacity", 0.5)
                         .append("path")
                         .datum(graticule)
                         .attr("d", path)
