@@ -45,8 +45,8 @@
                         .classed("svg-content", true)
                         .style("background-color", "ivory");
 
-            let basemap = svg.append('g')
-                             .attr("id","basemap");
+            // let basemap = svg.append('g')
+            //                  .attr("id","basemap");
 
         </script>
 
@@ -72,8 +72,8 @@
             let path = d3.geoPath()
                                  .projection(projection);
 
-            let map = svg.append("g")
-                         .attr("id","map");
+            // let map = svg.append("g")
+            //              .attr("id","map");
 
             // Sites to place markers
             let sites = [
@@ -164,23 +164,23 @@
                    .style("stroke-width","0.2px");;
             }
 
-            function update() {
-                basemap.selectAll("path")
-                       .data(features)
-                       .join(
-                            enter => 
-                                enter.append("path")
-                                     .attr(
-                                        "d",
-                                     ),
-                            update =>
-                                update.attr(
-                                        "d",
-                                      ),
-                            exit =>
-                                exit.remove()
-                       )
-            }
+            // function update() {
+            //     basemap.selectAll("path")
+            //            .data(features)
+            //            .join(
+            //                 enter => 
+            //                     enter.append("path")
+            //                          .attr(
+            //                             "d",
+            //                          ),
+            //                 update =>
+            //                     update.attr(
+            //                             "d",
+            //                           ),
+            //                 exit =>
+            //                     exit.remove()
+            //            )
+            // }
 
             d3.json("./world.geo.json").then( data => {
                 countries = data.features;
