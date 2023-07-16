@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Wiping</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+        <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+
+        <style>
+            .svg-container {
+                display: inline-block;
+                position: relative;
+                width: 100%;
+                padding-bottom: 100%;
+                vertical-align: top;
+                overflow: hidden;
+            }
+            .svg-content {
+                display: inline-block;
+                position: relative;
+                top: 25;
+                left: 25;
+                border: 2px solid green;
+                margin: 10px 10px 10px 50px;
+                padding: 10px 10px 10px 10px;
+            }
+            .graticule {
+                fill: "none";
+                stroke: "grey";
+                stroke-width: .5px;
+                stroke-opacity: .5;
+            }
+            .map {
+                display: inline;
+                position: absolute;
+}
+
+        </style>
+    </head>
+    <body>
+        <h1>This is the top</h1>
+        <svg height="8" width="8" xmlns="http://www.w3.org/2000/svg" version="1.1">
+            <defs>
+                <pattern id="crosshatch" patternUnits="userSpaceOnUse" width="1" height="1">
+                    <image xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc4JyBoZWlnaHQ9JzgnPgogIDxyZWN0IHdpZHRoPSc4JyBoZWlnaHQ9JzgnIGZpbGw9JyNmZmYnLz4KICA8cGF0aCBkPSdNMCAwTDggOFpNOCAwTDAgOFonIHN0cm9rZS13aWR0aD0nMC41JyBzdHJva2U9JyNhYWEnLz4KPC9zdmc+Cg==" x="0" y="0" width="8" height="8">
+                    </image>
+                </pattern>
+            </defs>
+        </svg>
+        <p>this is some information at the top</p>
+        <div id="bob" class="svg-container"></div>
+        <p>closing remarks are here</p>
+
+        <script>
+            let canvas = {
+                top: 25,
+                left: 125,
+                width: 650,
+                height: 650
+            };
+            let map = {
+                top: 25,
+                left: 25,
+                width: 400,
+                height: 400,
+                margin: {
+                    top: 30,
+                    right: 30,
+                    bottom: 30,
+                    left: 30,
+                }
+            };
+
+            map.top = (canvas.height - map.height)/2.0;
+            map.left = (canvas.width - map.width)/2.0;
+            console.log(map);
+
+            let xmax = map.width;
+            let xmin = 0;
+
+            let bob = d3.select("div#bob");
+            let mapcanvas = bob.append("svg")
+                        .attr("id","mapcanvas")
+                        .classed("svg-content", true)
+                        .attr("x",canvas.left).attr("y",canvas.top)
+                        .attr("width",canvas.width).attr("height",canvas.height) // 100% for responsive - other settings will change as well.
+                        .attr("viewbox", canvas.left + " " + canvas.top + " " + canvas.width + " " + canvas.height)
+                        .attr("preserveAspectRatio", "xMinYMin meet")
+                        .style("background-color", "ivory");
+
+            function checkdrag() {
+                function checkstart(event, d) {
+                    console.log('Starting to drag with event: ',event)
+                    d3.select(this).style("fill","red");
+                }
+
+                function checkdrag(event, d) {
+                    console.log('Dragging with event: ',event);
+                    d3.select(this).attr("cx",event.x).attr("cy",event.y);
+                }
+
+                function checkend(event, d) {
+                    d3.select(this).style("fill","purple");
+                }
+
+                return d3.drag()
+                    .on("start", checkstart)
+                    .on("drag", checkdrag)
+                    .on("end", checkend);
+            }
+
+            mapcanvas.append("circle")
+                .attr("cx","40")
+                .attr("cy","50")
+                .attr("r","30")
+                .style("fill","purple").style("opacity","0.4").style("stroke","black")
+                .call(checkdrag());
+
+            let w = map.width;
+
+            console.log(mapcanvas.node().width.baseVal.value);
+
+            function wipe() {
+                function dragstarted(event, d) {
+                    console.log('Starting to drag with event: ',event,' on ',this);
+
+                    let grp = d3.select(this);
+                    grp.select("#lefttext").style("fill","red");
+                    grp.select("#righttext").style("fill","red");
+                }
+
+                function dragged(event, d) {
+                    console.log('Dragging with event: ',event)
+
+                    let lmark = event.x > xmin?
+                                    event.x <= (xmax)? event.x: (xmax):
+                                    xmin;
+
+                    let grp = d3.select(this);
+                    grp.select("#lefttext").text(lmark - xmin);
+                    grp.select("#righttext").text(xmax - lmark);
+
+                    grp.attr("transform", function(d) {
+                                    return 'translate(' + (lmark) + ',0)' } );
+
+                    d3.select("#left")
+                        //.attr("preserveAspectRatio", "xMidYMid slice") // max mid
+                        .attr("width",lmark)
+                        .attr("viewBox", 0 + " " + 0 + " "
+                                         + lmark + " " + map.height);
+
+                    d3.select("#right")
+                        //.attr("preserveAspectRatio", "xMidYMid slice") // min mid
+                        .attr("x",(0 + lmark))
+                        .attr("width",(map.width - lmark))
+                        .attr("viewBox", (0 + lmark) + " " + 0 + " "
+                                         + (map.width - lmark) + " " + map.height);
+
+                }
+
+                function dragended(event, d) {
+                    console.log('Ending drag with event: ',event,' on ',this);
+
+                    let grp = d3.select(this);
+                    grp.select("#lefttext").style("fill","black");
+                    grp.select("#righttext").style("fill","black");
+                }
+
+                return d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended);
+            }
+
+            let mark = map.width / 2.0;
+
+            let left = mapcanvas.append("svg")
+                          .attr("id","left")
+                          .classed("map",true)
+                          .attr("x",0).attr("y",0)
+                          .attr("width",mark).attr("height",map.height)
+                          .attr("preserveAspectRatio", "xMinYMid slice") // maxmid
+                          .attr("viewBox", 0 + " " + 0 + " "
+                                           + mark + " " + map.height);
+
+            let right = mapcanvas.append("svg")
+                           .attr("id","right")
+                           .classed("map",true)
+                           .attr("x",(0 + mark)).attr("y",0)
+                           .attr("width",map.width - mark).attr("height",map.height)
+                           .attr("preserveAspectRatio", "xMinYMid slice") // minmid
+                           .attr("viewBox", (0 + mark) + " " + 0 + " "
+                                             + (map.width - mark) + " " + map.height);
+
+            left.append("rect").attr("x",0).attr("y",0)
+                               .attr("width",map.width)
+                               .attr("height",map.height)
+                               .style("display","block").style("fill","none")
+                               .style("stroke","purple").style("stroke-width","3");
+
+            right.append("rect").attr("x",0).attr("y",0)
+                                .attr("width",map.width)
+                                .attr("height",map.height)
+                                .style("display","block").style("fill","none")
+                                .style("stroke","red").style("stroke-width","3");
+
+            left.append("circle")
+                .attr("cx",140)
+                .attr("cy",100)
+                .attr("r","50")
+                .style("fill","none").style("stroke","black");
+
+            right.append("circle")
+                 .attr("cx",160)
+                 .attr("cy",100)
+                 .attr("r","50")
+                 .style("fill","none").style("stroke","red");
+
+            left.append("circle")
+                .attr("cx",200)
+                .attr("cy",200)
+                .attr("r","50")
+                .style("fill","none").style("stroke","purple").style("stroke-width","5");
+
+            right.append("circle")
+                 .attr("cx",200)
+                 .attr("cy",200)
+                 .attr("r","50")
+                 .style("fill","none").style("stroke","red").style("stroke-width","5");
+
+            let cursorwidth = 10;
+            let wiper = mapcanvas.append("g")
+                                 .attr("id","wiper")
+                                 .datum({x:((mark - (cursorwidth)/2.0)), y:0})
+                                 .attr("transform", function(d) {
+                                    return 'translate(' + d.x + ',' + d.y + ')' } )
+                                 .call(wipe());
+
+            wiper.append("rect")
+               .attr("x",0).attr("y",0)
+               .attr("width",cursorwidth)
+               .attr("height",(map.height))
+               .style("fill","cyan");
+
+            wiper.append("line")
+               .attr("x1",cursorwidth/2.0)
+               .attr("y1",0)
+               .attr("x2",cursorwidth/2.0)
+               .attr("y2",(map.height))
+               .style("stroke",'black').style("stroke-width","1px");
+
+            wiper.append("text")
+                .attr("id","lefttext")
+                .attr("x",(cursorwidth + 5)).attr("y",(map.height - 90))
+                .text(mark);
+
+            wiper.append("text")
+                .attr("id","righttext")
+                .attr("x",(cursorwidth + 5)).attr("y",(map.height - 60))
+                .text(map.width - mark);
+
+            //wiper.raise();
+            wiper.on("mouseover", function(event,d) {
+                console.log("mouseover: ",event.currentTarget,this);
+            });
+
+
+        </script>
+
+        <script>
+            console.log(bob);
+            console.log(mapcanvas);
+        </script>
+    </body>
+</html>
